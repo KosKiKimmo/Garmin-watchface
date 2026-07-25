@@ -1,0 +1,10 @@
+<properties>
+    <property id="SydOpen" type="number">22</property>
+    <property id="SydClose" type="number">7</property>
+    <property id="TyoOpen" type="number">0</property>
+    <property id="TyoClose" type="number">9</property>
+    <property id="LdnOpen" type="number">8</property>
+    <property id="LdnClose" type="number">17</property>
+    <property id="NycOpen" type="number">13</property>
+    <property id="NycClose" type="number">22</property>
+</properties>

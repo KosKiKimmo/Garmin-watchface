@@ -17,9 +17,12 @@ import Toybox.WatchUi;
 //! a countdown — "cls 2h23" (time until it closes, session open) or
 //! "opn 9h12" (time until it opens, session closed). Open sessions get a
 //! triangle marker and bright text; closed rows are dimmed.
+//!
+//! The big time uses a custom 7-segment bitmap font. Session hours are
+//! configurable; see SessionConfig in SettingsMenu.mc.
 class TradeSessionsLcdView extends WatchUi.WatchFace {
 
-    // Session start/end hours in UTC (fixed-UTC approximation, see README).
+    // Session start/end hours in UTC (defaults; overridden from settings).
     private var _abbrs as Array<String> = ["SYD", "TYO", "LDN", "NYC"];
     private var _startHour as Array<Number> = [22, 0, 8, 13];
     private var _endHour as Array<Number> = [7, 9, 17, 22];
@@ -31,8 +34,15 @@ class TradeSessionsLcdView extends WatchUi.WatchFace {
     ];
     private var _dayLetters as Array<String> = ["M", "T", "W", "T", "F", "S", "S"];
 
+    // Custom 7-segment bitmap font for the big time display.
+    private var _segFont as FontResource?;
+
     function initialize() {
         WatchFace.initialize();
+    }
+
+    function onLayout(dc as Dc) as Void {
+        _segFont = WatchUi.loadResource(Rez.Fonts.SegFont) as FontResource;
     }
 
     function onUpdate(dc as Dc) as Void {
@@ -46,6 +56,11 @@ class TradeSessionsLcdView extends WatchUi.WatchFace {
         }
         dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
         dc.clear();
+
+        for (var i = 0; i < 4; i++) {
+            _startHour[i] = SessionConfig.openHour(i);
+            _endHour[i] = SessionConfig.closeHour(i);
+        }
 
         var clock = System.getClockTime();
         var utcMinutes = localToUtcMinutes(clock);
@@ -143,11 +158,12 @@ class TradeSessionsLcdView extends WatchUi.WatchFace {
         }
         var timeStr = hour.format("%d") + ":" + clock.min.format("%02d");
         var y = 76.0 * k;
+        var font = (_segFont != null) ? _segFont as FontType : Graphics.FONT_NUMBER_MEDIUM;
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, y, Graphics.FONT_NUMBER_MEDIUM, timeStr,
+        dc.drawText(cx, y, font, timeStr,
                     Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
         if (!suffix.equals("")) {
-            var half = dc.getTextWidthInPixels(timeStr, Graphics.FONT_NUMBER_MEDIUM) / 2;
+            var half = dc.getTextWidthInPixels(timeStr, font) / 2;
             dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
             dc.drawText(cx + half + 14.0 * k, y, Graphics.FONT_XTINY, suffix,
                         Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);

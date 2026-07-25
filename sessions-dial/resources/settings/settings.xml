@@ -1,0 +1,26 @@
+<settings>
+    <setting propertyKey="@Properties.SydOpen" title="@Strings.SydOpenTitle">
+        <settingConfig type="numeric" min="0" max="23"/>
+    </setting>
+    <setting propertyKey="@Properties.SydClose" title="@Strings.SydCloseTitle">
+        <settingConfig type="numeric" min="0" max="23"/>
+    </setting>
+    <setting propertyKey="@Properties.TyoOpen" title="@Strings.TyoOpenTitle">
+        <settingConfig type="numeric" min="0" max="23"/>
+    </setting>
+    <setting propertyKey="@Properties.TyoClose" title="@Strings.TyoCloseTitle">
+        <settingConfig type="numeric" min="0" max="23"/>
+    </setting>
+    <setting propertyKey="@Properties.LdnOpen" title="@Strings.LdnOpenTitle">
+        <settingConfig type="numeric" min="0" max="23"/>
+    </setting>
+    <setting propertyKey="@Properties.LdnClose" title="@Strings.LdnCloseTitle">
+        <settingConfig type="numeric" min="0" max="23"/>
+    </setting>
+    <setting propertyKey="@Properties.NycOpen" title="@Strings.NycOpenTitle">
+        <settingConfig type="numeric" min="0" max="23"/>
+    </setting>
+    <setting propertyKey="@Properties.NycClose" title="@Strings.NycCloseTitle">
+        <settingConfig type="numeric" min="0" max="23"/>
+    </setting>
+</settings>

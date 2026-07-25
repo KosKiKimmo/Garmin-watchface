@@ -12,11 +12,12 @@ import Toybox.WatchUi;
 //! with one colored arc per major forex session. A white radial marker shows
 //! the current UTC time — every arc the marker crosses is a session that is
 //! open right now. The center shows local time, date, UTC time, battery and
-//! a countdown to the next session open/close.
+//! a per-session panel: the session abbreviation plus a countdown — time to
+//! close while the session is open (bright), time to open while closed (dim).
+//!
+//! Session hours are configurable; see SessionConfig in SettingsMenu.mc.
 class TradeSessionsView extends WatchUi.WatchFace {
 
-    // Session start/end hours are in UTC. These are the commonly used
-    // fixed-UTC approximations (see README for the DST caveat).
     private var _abbrs as Array<String> = ["SYD", "TYO", "LDN", "NYC"];
     private var _startHour as Array<Number> = [22, 0, 8, 13];
     private var _endHour as Array<Number> = [7, 9, 17, 22];
@@ -47,14 +48,19 @@ class TradeSessionsView extends WatchUi.WatchFace {
         dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
         dc.clear();
 
+        for (var i = 0; i < 4; i++) {
+            _startHour[i] = SessionConfig.openHour(i);
+            _endHour[i] = SessionConfig.closeHour(i);
+        }
+
         var clock = System.getClockTime();
         var utcMinutes = localToUtcMinutes(clock);
 
-        drawTicks(dc, cx, cy, w);
         drawSessionArcs(dc, cx, cy, k, utcMinutes);
+        drawTicks(dc, cx, cy, w);
         drawTimeMarker(dc, cx, cy, k, w, utcMinutes);
         drawCenterInfo(dc, cx, cy, k, clock, utcMinutes);
-        drawLegend(dc, cx, cy, k, utcMinutes);
+        drawSessionPanel(dc, cx, cy, k, utcMinutes);
     }
 
     //! Minutes since midnight UTC, derived from local clock time.
@@ -81,6 +87,7 @@ class TradeSessionsView extends WatchUi.WatchFace {
     }
 
     //! 24 hour ticks around the bezel; every 6th tick is emphasized.
+    //! Drawn after the arcs so the hour grid stays visible on top of them.
     private function drawTicks(dc as Dc, cx as Float, cy as Float, w as Number) as Void {
         var rOuter = w / 2.0 - 2.0;
         for (var i = 0; i < 24; i++) {
@@ -101,7 +108,10 @@ class TradeSessionsView extends WatchUi.WatchFace {
     private function drawSessionArcs(dc as Dc, cx as Float, cy as Float,
                                      k as Float, utcMinutes as Number) as Void {
         for (var i = 0; i < 4; i++) {
-            var r = (120.0 - 9.0 * i) * k;
+            if (_startHour[i] == _endHour[i]) {
+                continue;
+            }
+            var r = (121.0 - 8.0 * i) * k;
             dc.setColor(_colors[i], Graphics.COLOR_TRANSPARENT);
             dc.setPenWidth(isOpen(i, utcMinutes) ? (7.0 * k).toNumber() : (4.0 * k).toNumber());
             dc.drawArc(cx, cy, r, Graphics.ARC_CLOCKWISE,
@@ -117,7 +127,7 @@ class TradeSessionsView extends WatchUi.WatchFace {
         var angle = Math.toRadians(90.0 - utcMinutes * 360.0 / 1440.0);
         var cosA = Math.cos(angle);
         var sinA = Math.sin(angle);
-        var rIn = 88.0 * k;
+        var rIn = 92.0 * k;
         var rOut = w / 2.0 - 4.0;
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
         dc.setPenWidth(3);
@@ -132,14 +142,14 @@ class TradeSessionsView extends WatchUi.WatchFace {
 
         // Battery
         dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, cy - 80.0 * k, Graphics.FONT_XTINY,
+        dc.drawText(cx, cy - 78.0 * k, Graphics.FONT_XTINY,
                     stats.battery.format("%d") + "%",
                     Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
 
         // Date, e.g. "Fri 25 Jul"
         var today = Gregorian.info(Time.now(), Time.FORMAT_MEDIUM);
         dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, cy - 56.0 * k, Graphics.FONT_TINY,
+        dc.drawText(cx, cy - 58.0 * k, Graphics.FONT_TINY,
                     today.day_of_week + " " + today.day.format("%d") + " " + today.month,
                     Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
 
@@ -152,56 +162,41 @@ class TradeSessionsView extends WatchUi.WatchFace {
             }
         }
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, cy - 14.0 * k, Graphics.FONT_NUMBER_MEDIUM,
+        dc.drawText(cx, cy - 16.0 * k, Graphics.FONT_NUMBER_MEDIUM,
                     hour.format("%d") + ":" + clock.min.format("%02d"),
                     Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
 
         // UTC time
         dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, cy + 26.0 * k, Graphics.FONT_TINY,
+        dc.drawText(cx, cy + 22.0 * k, Graphics.FONT_TINY,
                     "UTC " + (utcMinutes / 60).format("%02d") + ":" + (utcMinutes % 60).format("%02d"),
                     Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
-
-        // Countdown to the next session open/close
-        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, cy + 46.0 * k, Graphics.FONT_XTINY,
-                    nextEventText(utcMinutes),
-                    Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
     }
 
-    //! e.g. "LDN closes 2h14" or "TYO opens 0h23"
-    private function nextEventText(utcMinutes as Number) as String {
-        var bestDelta = 100000;
-        var bestText = "";
-        for (var i = 0; i < 4; i++) {
-            var boundaries = [_startHour[i] * 60, _endHour[i] * 60];
-            var verbs = [" opens ", " closes "];
-            for (var j = 0; j < 2; j++) {
-                var delta = ((boundaries[j] - utcMinutes) % 1440 + 1440) % 1440;
-                if (delta == 0) {
-                    delta = 1440;
-                }
-                if (delta < bestDelta) {
-                    bestDelta = delta;
-                    bestText = _abbrs[i] + verbs[j]
-                        + (delta / 60).format("%d") + "h"
-                        + (delta % 60).format("%02d");
-                }
-            }
-        }
-        return bestText;
-    }
-
-    //! Session abbreviations along the bottom: colored while the session is
-    //! open, dark gray while closed.
-    private function drawLegend(dc as Dc, cx as Float, cy as Float,
-                                k as Float, utcMinutes as Number) as Void {
+    //! Session panel: one column per session with its abbreviation and a
+    //! countdown — while open (bright): time until close; while closed
+    //! (dimmed): time until open.
+    private function drawSessionPanel(dc as Dc, cx as Float, cy as Float,
+                                      k as Float, utcMinutes as Number) as Void {
         var spacing = 36.0 * k;
         for (var i = 0; i < 4; i++) {
             var x = cx + (i - 1.5) * spacing;
-            dc.setColor(isOpen(i, utcMinutes) ? _colors[i] : Graphics.COLOR_DK_GRAY,
+            var open = isOpen(i, utcMinutes);
+
+            dc.setColor(open ? _colors[i] : Graphics.COLOR_DK_GRAY,
                         Graphics.COLOR_TRANSPARENT);
-            dc.drawText(x, cy + 64.0 * k, Graphics.FONT_XTINY, _abbrs[i],
+            dc.drawText(x, cy + 41.0 * k, Graphics.FONT_XTINY, _abbrs[i],
+                        Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+
+            var target = (open ? _endHour[i] : _startHour[i]) * 60;
+            var delta = ((target - utcMinutes) % 1440 + 1440) % 1440;
+            if (delta == 0) {
+                delta = 1440;
+            }
+            dc.setColor(open ? Graphics.COLOR_WHITE : Graphics.COLOR_DK_GRAY,
+                        Graphics.COLOR_TRANSPARENT);
+            dc.drawText(x, cy + 56.0 * k, Graphics.FONT_XTINY,
+                        (delta / 60).format("%d") + "h" + (delta % 60).format("%02d"),
                         Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
         }
     }

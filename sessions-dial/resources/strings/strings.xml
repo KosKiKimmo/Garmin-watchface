@@ -1,3 +1,11 @@
 <strings>
     <string id="AppName">Trade Sessions</string>
+    <string id="SydOpenTitle">Sydney open (UTC hour)</string>
+    <string id="SydCloseTitle">Sydney close (UTC hour)</string>
+    <string id="TyoOpenTitle">Tokyo open (UTC hour)</string>
+    <string id="TyoCloseTitle">Tokyo close (UTC hour)</string>
+    <string id="LdnOpenTitle">London open (UTC hour)</string>
+    <string id="LdnCloseTitle">London close (UTC hour)</string>
+    <string id="NycOpenTitle">New York open (UTC hour)</string>
+    <string id="NycCloseTitle">New York close (UTC hour)</string>
 </strings>
